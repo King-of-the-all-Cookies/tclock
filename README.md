@@ -5,7 +5,7 @@
 Just... Open a clock.exe?
 
 ## Config
-The configuration file is located at %USERPROFILE%\.clock\config.ini
+The configuration file is located at %USERPROFILE%\\.clock\config.ini
 
 I think the configuration file for UNIX systems will be located in ~/.clock/config.ini
 
