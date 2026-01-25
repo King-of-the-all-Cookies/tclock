@@ -1,4 +1,5 @@
-# <img src="image.png" align="right" width="35%">Terminal clock
+# TClock
+![Simple terminal clock](image.png)
 
 ## Usage:
 Just... Open a clock.exe?
