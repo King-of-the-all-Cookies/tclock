@@ -35,8 +35,7 @@ typedef enum {
 typedef enum {
     STYLE_HASH = 0,      
     STYLE_BLOCK,         
-    STYLE_BINARY,        
-    STYLE_ANALOG         
+    STYLE_BINARY         
 } ClockStyle;
 
 

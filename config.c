@@ -182,7 +182,6 @@ int load_config(Config *config) {
                 if (strcmp(v, "hash") == 0) config->style = STYLE_HASH;
                 else if (strcmp(v, "block") == 0) config->style = STYLE_BLOCK;
                 else if (strcmp(v, "binary") == 0) config->style = STYLE_BINARY;
-                else if (strcmp(v, "analog") == 0) config->style = STYLE_ANALOG;
             }
             else if (strcmp(k, "format") == 0) {
                 if (strcmp(v, "24") == 0 || strcmp(v, "24h") == 0) config->format_24h = 1;
@@ -246,8 +245,8 @@ int save_config(const Config *config) {
     fprintf(file, "color = #%02X%02X%02X\n\n", config->color_r, config->color_g, config->color_b);
     
     
-    const char *style_names[] = {"hash", "block", "binary", "analog"};
-    fprintf(file, "# Style: hash, block, binary, analog\n");
+    const char *style_names[] = {"hash", "block", "binary"};
+    fprintf(file, "# Style: hash, block, binary\n");
     fprintf(file, "style = %s\n\n", style_names[config->style]);
     
     

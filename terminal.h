@@ -31,4 +31,7 @@ void enable_ansi_windows(void);
 
 void display_clock(ClockBuffer *buf, const Config *config, int blink_state);
 
+int poll_key(void);
+void display_too_small(int h, int m, int s, const Config *config);
+
 #endif

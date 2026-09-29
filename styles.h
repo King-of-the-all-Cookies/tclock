@@ -32,10 +32,4 @@ void render_binary_clock(
     const Config *config
 );
 
-void render_analog_clock(
-    ClockBuffer *buf,
-    int h, int m, int s,
-    const Config *config
-);
-
 #endif

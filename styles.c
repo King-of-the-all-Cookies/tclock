@@ -1,7 +1,6 @@
 #include "styles.h"
 #include <stdio.h>
 #include <string.h>
-#include <math.h>
 
 static void clear_buffer(ClockBuffer *buf) {
     memset(buf->data, ' ', sizeof(buf->data));
@@ -113,85 +112,3 @@ void render_binary_clock(ClockBuffer *buf, int h, int m, int s, const Config *cf
 
 
 
-static void draw_circle(ClockBuffer *buf, int cx, int cy, int r) {
-    for (int a = 0; a < 360; a += 5) {  
-        double rad = a * M_PI / 180.0;
-        int x = cx + (int)(r * cos(rad));
-        int y = cy + (int)(r * sin(rad));
-        put_char(buf, x, y, 'o');
-    }
-}
-
-static void draw_line(
-    ClockBuffer *buf,
-    int x0, int y0,
-    int x1, int y1,
-    char c
-) {
-    int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
-    int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
-    int err = dx + dy;
-
-    while (1) {
-        put_char(buf, x0, y0, c);
-        if (x0 == x1 && y0 == y1) break;
-        int e2 = 2 * err;
-        if (e2 >= dy) { err += dy; x0 += sx; }
-        if (e2 <= dx) { err += dx; y0 += sy; }
-    }
-}
-
-void render_analog_clock(ClockBuffer *buf, int h, int m, int s, const Config *cfg) {
-    clear_buffer(buf);
-
-    const int size = 25;
-    const int cx = size / 2;
-    const int cy = size / 2;
-    const int r  = size / 2 - 2;
-
-    buf->width  = size;
-    buf->height = size;
-
-    draw_circle(buf, cx, cy, r);
-
-    
-    for (int n = 1; n <= 12; n++) {
-        double a = (n - 3) * 30 * M_PI / 180.0;
-        int x = cx + (int)((r - 2) * cos(a));
-        int y = cy + (int)((r - 2) * sin(a));
-        if (n < 10) {
-            put_char(buf, x, y, '0' + n);
-        } else {
-            put_char(buf, x - 1, y, '1');
-            put_char(buf, x,     y, '2');
-        }
-    }
-
-    
-    double ah = ((h % 12) + m / 60.0) * 30 * M_PI / 180.0;
-    double am = m * 6 * M_PI / 180.0;
-    double as = s * 6 * M_PI / 180.0;
-
-    
-    draw_line(buf, cx, cy,
-        cx + (int)((r - 6) * cos(ah)),
-        cy + (int)((r - 6) * sin(ah)),
-        'H');
-
-    
-    draw_line(buf, cx, cy,
-        cx + (int)((r - 3) * cos(am)),
-        cy + (int)((r - 3) * sin(am)),
-        'M');
-
-    
-    if (cfg->show_seconds) {
-        draw_line(buf, cx, cy,
-            cx + (int)((r - 1) * cos(as)),
-            cy + (int)((r - 1) * sin(as)),
-            '.');
-    }
-
-    
-    put_char(buf, cx, cy, '+');
-}

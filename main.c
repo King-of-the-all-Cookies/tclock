@@ -29,7 +29,7 @@ void print_usage(const char *prog_name) {
     printf("  position   = top-left, top-center, top-right, center-left, center,\n");
     printf("               center-right, bottom-left, bottom-center, bottom-right\n");
     printf("  color      = #RRGGBB (hex color, e.g., #00FF00 for green)\n");
-    printf("  style      = hash, block, binary, analog\n");
+    printf("  style      = hash, block, binary\n");
     printf("  format     = 24 or 12\n");
     printf("  separator  = colon, dot, comma, slash\n");
     printf("  order      = hms, hm, ms, smh, mh\n");
@@ -89,6 +89,7 @@ int main(int argc, char *argv[]) {
     
     ClockBuffer buffer;
     int blink_state = 0;
+    int too_small = 0;
     
     
     int prev_h = -1, prev_m = -1, prev_s = -1;
@@ -114,6 +115,13 @@ int main(int argc, char *argv[]) {
         }
         
         
+        int key = poll_key();
+        if (key == 'q' || key == 'Q') {
+            running = 0;
+            break;
+        }
+        
+        
         TerminalSize current_term = get_terminal_size();
         int term_changed = (current_term.width != prev_term.width || 
                            current_term.height != prev_term.height);
@@ -121,12 +129,12 @@ int main(int argc, char *argv[]) {
         
         int time_changed = (h != prev_h || m != prev_m || s != prev_s);
         
+        if (term_changed) {
+            clear_screen();
+            prev_term = current_term;
+        }
+        
         if (time_changed || term_changed) {
-            
-            if (term_changed) {
-                clear_screen();
-                prev_term = current_term;
-            }
             
             
             switch (config.style) {
@@ -139,21 +147,25 @@ int main(int argc, char *argv[]) {
                 case STYLE_BINARY:
                     render_binary_clock(&buffer, display_h, m, s, &config);
                     break;
-                case STYLE_ANALOG:
-                    render_analog_clock(&buffer, display_h, m, s, &config);
-                    break;
                 default:
                     render_hash_clock(&buffer, display_h, m, s, &config);
             }
             
             
-            display_clock(&buffer, &config, blink_state);
+            too_small = (current_term.width < buffer.width ||
+                        current_term.height < buffer.height);
+            
+            if (too_small) {
+                display_too_small(h, m, s, &config);
+            } else {
+                display_clock(&buffer, &config, blink_state);
+            }
             
             prev_h = h;
             prev_m = m;
             prev_s = s;
         } 
-        else if (config.blink_separator) {
+        else if (config.blink_separator && !too_small) {
             
             display_clock(&buffer, &config, blink_state);
         }

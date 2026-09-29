@@ -3,7 +3,6 @@
 
 #ifdef _WIN32
 
-
 #ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
 #define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
 #endif
@@ -39,6 +38,9 @@ TerminalSize get_terminal_size(void) {
 
 #else
 
+#include <termios.h>
+#include <fcntl.h>
+
 void enable_ansi_windows(void) {
     
 }
@@ -58,6 +60,118 @@ TerminalSize get_terminal_size(void) {
 }
 
 #endif
+
+int poll_key(void) {
+#ifdef _WIN32
+    HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
+    if (hIn == INVALID_HANDLE_VALUE) return 0;
+
+    if (GetFileType(hIn) != FILE_TYPE_CHAR) {
+        char c = 0;
+        DWORD read = 0;
+        DWORD available = 0;
+        if (PeekNamedPipe(hIn, NULL, 0, NULL, &available, NULL)) {
+            if (available == 0) return 0;
+        }
+        if (ReadFile(hIn, &c, 1, &read, NULL) && read == 1) return c;
+        return 0;
+    }
+
+    while (1) {
+        DWORD events = 0;
+        if (!GetNumberOfConsoleInputEvents(hIn, &events) || events == 0) {
+            return 0;
+        }
+        INPUT_RECORD rec;
+        DWORD consumed = 0;
+        if (!ReadConsoleInput(hIn, &rec, 1, &consumed) || consumed == 0) {
+            return 0;
+        }
+        if (rec.EventType == KEY_EVENT && rec.Event.KeyEvent.bKeyDown) {
+            char c = (char)rec.Event.KeyEvent.uChar.AsciiChar;
+            if (c != 0) return c;
+        }
+    }
+#else
+    struct termios oldt, newt;
+    int oldflags;
+    int key = 0;
+
+    if (tcgetattr(STDIN_FILENO, &oldt) != 0) return 0;
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO);
+    newt.c_cc[VMIN] = 0;
+    newt.c_cc[VTIME] = 0;
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &newt) != 0) return 0;
+
+    oldflags = fcntl(STDIN_FILENO, F_GETFL, 0);
+    if (oldflags != -1) {
+        fcntl(STDIN_FILENO, F_SETFL, oldflags | O_NONBLOCK);
+    }
+
+    char c = 0;
+    if (read(STDIN_FILENO, &c, 1) == 1) {
+        key = c;
+    }
+
+    if (oldflags != -1) {
+        fcntl(STDIN_FILENO, F_SETFL, oldflags);
+    }
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    return key;
+#endif
+}
+
+void display_too_small(int h, int m, int s, const Config *config) {
+    TerminalSize term = get_terminal_size();
+
+    int display_h = h;
+    if (!config->format_24h) {
+        if (display_h == 0) display_h = 12;
+        else if (display_h > 12) display_h -= 12;
+    }
+
+    char sep;
+    switch (config->separator) {
+        case SEP_DOT:   sep = '.'; break;
+        case SEP_COMMA: sep = ','; break;
+        case SEP_SLASH: sep = '/'; break;
+        default:        sep = ':'; break;
+    }
+
+    char tstr[32];
+    if (config->show_seconds) {
+        snprintf(tstr, sizeof(tstr), "%02d%c%02d%c%02d",
+                 display_h, sep, m, sep, s);
+    } else {
+        snprintf(tstr, sizeof(tstr), "%02d%c%02d", display_h, sep, m);
+    }
+
+    const char *message = "Window is too small";
+    const char *hint = "Enlarge the window or press Q to quit";
+
+    set_color_rgb(config->color_r, config->color_g, config->color_b);
+
+    int msg_x = (term.width - (int)strlen(message)) / 2;
+    if (msg_x < 1) msg_x = 1;
+    int msg_y = term.height / 2;
+    if (msg_y < 1) msg_y = 1;
+    move_cursor(msg_x, msg_y);
+    printf("%s", message);
+
+    int hint_x = (term.width - (int)strlen(hint)) / 2;
+    if (hint_x < 1) hint_x = 1;
+    move_cursor(hint_x, msg_y + 1);
+    printf("%s", hint);
+
+    int tx = (term.width - (int)strlen(tstr)) / 2;
+    if (tx < 1) tx = 1;
+    move_cursor(tx, term.height);
+    printf("%s", tstr);
+
+    reset_color();
+    fflush(stdout);
+}
 
 void clear_screen(void) {
     printf("\033[H\033[J");
