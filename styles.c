@@ -78,6 +78,9 @@ static void render_digital(
         draw_digit(buf, x, y, s / 10, pixel); x += 6;
         draw_digit(buf, x, y, s % 10, pixel);
     }
+
+    buf->width = x + 5;
+    buf->height = y + 5;
 }
 
 
