@@ -9,7 +9,7 @@
 typedef struct {
     int width;
     int height;
-    char data[MAX_CLOCK_HEIGHT][MAX_CLOCK_WIDTH];
+    unsigned int data[MAX_CLOCK_HEIGHT][MAX_CLOCK_WIDTH];
 } ClockBuffer;
 
 

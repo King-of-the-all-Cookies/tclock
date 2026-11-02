@@ -86,6 +86,7 @@ int main(int argc, char *argv[]) {
     
     hide_cursor();
     clear_screen();
+    init_terminal();
     
     ClockBuffer buffer;
     int blink_state = 0;
@@ -120,6 +121,7 @@ int main(int argc, char *argv[]) {
             running = 0;
             break;
         }
+        int force_redraw = (key != 0);
         
         
         TerminalSize current_term = get_terminal_size();
@@ -129,12 +131,12 @@ int main(int argc, char *argv[]) {
         
         int time_changed = (h != prev_h || m != prev_m || s != prev_s);
         
-        if (term_changed) {
+        if (term_changed || force_redraw) {
             clear_screen();
             prev_term = current_term;
         }
         
-        if (time_changed || term_changed) {
+        if (time_changed || term_changed || force_redraw) {
             
             
             switch (config.style) {
@@ -178,6 +180,7 @@ int main(int argc, char *argv[]) {
     }
     
     
+    restore_terminal();
     clear_screen();
     show_cursor();
     reset_color();

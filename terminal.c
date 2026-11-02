@@ -7,6 +7,12 @@
 #define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
 #endif
 
+void init_terminal(void) {
+}
+
+void restore_terminal(void) {
+}
+
 void enable_ansi_windows(void) {
     HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
     if (hOut == INVALID_HANDLE_VALUE) {
@@ -20,6 +26,8 @@ void enable_ansi_windows(void) {
     
     dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
     SetConsoleMode(hOut, dwMode);
+
+    SetConsoleOutputCP(CP_UTF8);
 }
 
 void sleep_ms(int milliseconds) {
@@ -40,6 +48,40 @@ TerminalSize get_terminal_size(void) {
 
 #include <termios.h>
 #include <fcntl.h>
+
+static struct termios saved_termios;
+static int saved_flags = -1;
+static int terminal_ready = 0;
+
+void init_terminal(void) {
+    struct termios t;
+
+    if (tcgetattr(STDIN_FILENO, &saved_termios) != 0)
+        return;
+
+    t = saved_termios;
+    t.c_lflag &= ~(ICANON | ECHO);
+    t.c_cc[VMIN] = 0;
+    t.c_cc[VTIME] = 0;
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &t) != 0)
+        return;
+
+    saved_flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+    if (saved_flags != -1)
+        fcntl(STDIN_FILENO, F_SETFL, saved_flags | O_NONBLOCK);
+
+    terminal_ready = 1;
+}
+
+void restore_terminal(void) {
+    if (!terminal_ready)
+        return;
+
+    if (saved_flags != -1)
+        fcntl(STDIN_FILENO, F_SETFL, saved_flags);
+    tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios);
+    terminal_ready = 0;
+}
 
 void enable_ansi_windows(void) {
     
@@ -93,32 +135,13 @@ int poll_key(void) {
         }
     }
 #else
-    struct termios oldt, newt;
-    int oldflags;
-    int key = 0;
-
-    if (tcgetattr(STDIN_FILENO, &oldt) != 0) return 0;
-    newt = oldt;
-    newt.c_lflag &= ~(ICANON | ECHO);
-    newt.c_cc[VMIN] = 0;
-    newt.c_cc[VTIME] = 0;
-    if (tcsetattr(STDIN_FILENO, TCSANOW, &newt) != 0) return 0;
-
-    oldflags = fcntl(STDIN_FILENO, F_GETFL, 0);
-    if (oldflags != -1) {
-        fcntl(STDIN_FILENO, F_SETFL, oldflags | O_NONBLOCK);
-    }
+    if (!terminal_ready)
+        return 0;
 
     char c = 0;
-    if (read(STDIN_FILENO, &c, 1) == 1) {
-        key = c;
-    }
-
-    if (oldflags != -1) {
-        fcntl(STDIN_FILENO, F_SETFL, oldflags);
-    }
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-    return key;
+    if (read(STDIN_FILENO, &c, 1) == 1)
+        return (unsigned char)c;
+    return 0;
 #endif
 }
 
@@ -166,7 +189,7 @@ void display_too_small(int h, int m, int s, const Config *config) {
 
     int tx = (term.width - (int)strlen(tstr)) / 2;
     if (tx < 1) tx = 1;
-    move_cursor(tx, term.height);
+    move_cursor(tx, term.height - 1);
     printf("%s", tstr);
 
     reset_color();
@@ -189,8 +212,26 @@ void show_cursor(void) {
 }
 
 void move_cursor(int x, int y) {
-    printf("\033[%d;%dH", y, x);
+    printf("\033[%d;%dH", y + 1, x + 1);
     fflush(stdout);
+}
+
+static void put_codepoint(unsigned int cp) {
+    if (cp < 0x80) {
+        putchar((int)cp);
+    } else if (cp < 0x800) {
+        putchar(0xC0 | (cp >> 6));
+        putchar(0x80 | (cp & 0x3F));
+    } else if (cp < 0x10000) {
+        putchar(0xE0 | (cp >> 12));
+        putchar(0x80 | ((cp >> 6) & 0x3F));
+        putchar(0x80 | (cp & 0x3F));
+    } else {
+        putchar(0xF0 | (cp >> 18));
+        putchar(0x80 | ((cp >> 12) & 0x3F));
+        putchar(0x80 | ((cp >> 6) & 0x3F));
+        putchar(0x80 | (cp & 0x3F));
+    }
 }
 
 void set_color_rgb(int r, int g, int b) {
@@ -202,6 +243,7 @@ void reset_color(void) {
 }
 
 void display_clock(ClockBuffer *buf, const Config *config, int blink_state) {
+    (void)blink_state;
     TerminalSize term = get_terminal_size();
     int x = 0, y = 0;
     
@@ -252,7 +294,7 @@ void display_clock(ClockBuffer *buf, const Config *config, int blink_state) {
     for (int row = 0; row < buf->height; row++) {
         move_cursor(x, y + row);
         for (int col = 0; col < buf->width; col++) {
-            putchar(buf->data[row][col]);
+            put_codepoint(buf->data[row][col]);
         }
     }
     

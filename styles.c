@@ -2,13 +2,17 @@
 #include <stdio.h>
 #include <string.h>
 
+#define FULL_BLOCK 0x2588
+
 static void clear_buffer(ClockBuffer *buf) {
-    memset(buf->data, ' ', sizeof(buf->data));
+    for (int y = 0; y < MAX_CLOCK_HEIGHT; y++)
+        for (int x = 0; x < MAX_CLOCK_WIDTH; x++)
+            buf->data[y][x] = ' ';
     buf->width = 0;
     buf->height = 0;
 }
 
-static void put_char(ClockBuffer *buf, int x, int y, char c) {
+static void put_char(ClockBuffer *buf, int x, int y, unsigned int c) {
     if (x < 0 || y < 0 || x >= MAX_CLOCK_WIDTH || y >= MAX_CLOCK_HEIGHT)
         return;
     buf->data[y][x] = c;
@@ -18,7 +22,7 @@ static void put_char(ClockBuffer *buf, int x, int y, char c) {
 
 static void put_str(ClockBuffer *buf, int x, int y, const char *s) {
     for (int i = 0; s[i]; i++)
-        put_char(buf, x + i, y, s[i]);
+        put_char(buf, x + i, y, (unsigned char)s[i]);
 }
 
 static const char *digit_7seg[10][5] = {
@@ -34,8 +38,7 @@ static const char *digit_7seg[10][5] = {
     {" ### ", "#   #", " ### ", "    #", " ### "}  
 };
 
-static void draw_digit(ClockBuffer *buf, int x, int y, int d, char on) {
-    const char *digit = digit_7seg[d][0];
+static void draw_digit(ClockBuffer *buf, int x, int y, int d, unsigned int on) {
     for (int r = 0; r < 5; r++) {
         for (int c = 0; c < 5; c++) {
             char ch = digit_7seg[d][r][c];
@@ -46,7 +49,7 @@ static void draw_digit(ClockBuffer *buf, int x, int y, int d, char on) {
     }
 }
 
-static void draw_colon(ClockBuffer *buf, int x, int y, char c) {
+static void draw_colon(ClockBuffer *buf, int x, int y, unsigned int c) {
     put_char(buf, x, y + 1, c);
     put_char(buf, x, y + 3, c);
 }
@@ -55,7 +58,7 @@ static void render_digital(
     ClockBuffer *buf,
     int h, int m, int s,
     const Config *cfg,
-    char pixel
+    unsigned int pixel
 ) {
     clear_buffer(buf);
 
@@ -83,7 +86,7 @@ void render_hash_clock(ClockBuffer *buf, int h, int m, int s, const Config *cfg)
 }
 
 void render_block_clock(ClockBuffer *buf, int h, int m, int s, const Config *cfg) {
-    render_digital(buf, h, m, s, cfg, (char)219);  
+    render_digital(buf, h, m, s, cfg, FULL_BLOCK);
 }
 
 
@@ -91,7 +94,7 @@ void render_block_clock(ClockBuffer *buf, int h, int m, int s, const Config *cfg
 static void draw_binary_row(ClockBuffer *buf, int y, int value, int bits) {
     for (int i = 0; i < bits; i++) {
         int bit = (value >> (bits - 1 - i)) & 1;
-        put_char(buf, i * 2, y, bit ? (char)219 : '.');
+        put_char(buf, i * 2, y, bit ? FULL_BLOCK : '.');
     }
 }
 

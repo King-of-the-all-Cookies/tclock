@@ -27,6 +27,8 @@ void set_color_rgb(int r, int g, int b);
 void reset_color(void);
 TerminalSize get_terminal_size(void);
 void enable_ansi_windows(void);
+void init_terminal(void);
+void restore_terminal(void);
 
 
 void display_clock(ClockBuffer *buf, const Config *config, int blink_state);
